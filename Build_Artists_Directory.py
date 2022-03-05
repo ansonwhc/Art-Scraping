@@ -217,7 +217,7 @@ class BuildArtistsDirectory:
         self.artwork_df = self.get_artists()
         time_used = time.time() - start
         print(f"All downloaded artworks are stored in {self.save_art_dir}")
-        print(f"Time used: {int((time_used)/60)}m{time_used/60)%1*60:.0f}s")
+        print(f"Time used: {int((time_used)/60)}m{time_used/60%1*60:.0f}s")
 
         return self.artists_df, self.artwork_df
         
