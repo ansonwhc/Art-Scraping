@@ -15,7 +15,8 @@ import os
         
 class ArtistExtract:
     def __init__(self, save_dir, artist_name, artist_url, 
-                 return_df=True, export=True):
+                 return_df=True, export=True,
+                 verbose=1):
         self.save_dir = save_dir
         self.artist_name = artist_name
         self.artist_url = artist_url
@@ -23,6 +24,8 @@ class ArtistExtract:
         
         self.return_df = return_df
         self.export = export
+        
+        self.verbose = verbose
         
         
     def check_save_dir(self):
@@ -88,7 +91,8 @@ class ArtistExtract:
     def get_artist(self):
         children_url = self.get_children(self.artist_url)
         artist_name = '_'.join(re.sub("https://", "", self.artist_url).split('/')[3:-1])
-        print(f"Getting {artist_name}")
+        if self.verbose:
+            print(f"Getting {artist_name}")
         
         df = pd.concat([self.get_direct(child_url) for child_url in children_url], axis=0)
         df = df.reset_index(drop=True)
@@ -105,7 +109,8 @@ class ArtistExtract:
 
 class BuildArtistsDirectory:
     def __init__(self, save_dir, period='all', school='all', base='all', 
-                 nationality='all', custom_name=None, n_processes=cpu_count()-1):
+                 nationality='all', custom_name=None, n_processes=cpu_count()-1,
+                 verbose=1):
         
         self.custom_name = custom_name
         if self.custom_name is not None:
@@ -119,7 +124,9 @@ class BuildArtistsDirectory:
         self.school = school
         self.base = base
         self.nationality = nationality
+        
         self.n_processes = n_processes
+        self.verbose = verbose
         
         if not os.path.exists(self.save_art_dir):
             os.makedirs(self.save_art_dir)
@@ -129,7 +136,8 @@ class BuildArtistsDirectory:
     
     
     def get_jpg(self, url, _id):
-        print(f"Getting picture ID {_id}")
+        if self.verbose:
+                print(f"Getting picture ID {_id}")
         img = Image.open(requests.get(url, stream=True).raw)
         img.save(f"{self.save_art_dir}/{_id}.jpg")
         
@@ -145,10 +153,11 @@ class BuildArtistsDirectory:
 
         with get_context('spawn').Pool(self.n_processes) as pool:
             artists_work_func = [pool.apply_async(ArtistExtract(self.save_dir, 
-                                                           row['artist'], 
-                                                           row['url'], 
-                                                           return_df=True, 
-                                                           export=False).get_artist) 
+                                                                row['artist'], 
+                                                                row['url'], 
+                                                                return_df=True, 
+                                                                export=False,
+                                                                verbose=self.verbose).get_artist) 
                                  for index, row in self.artists_df.iterrows()]
             TIMEOUT = 20
             artwork_df = []
@@ -206,9 +215,9 @@ class BuildArtistsDirectory:
                                                 custom_name=self.custom_name,
                                                 export_to_dir=False)
         self.artwork_df = self.get_artists()
-        end = time.time()
+        time_used = time.time() - start
         print(f"All downloaded artworks are stored in {self.save_art_dir}")
-        print(f"Time used: {(end-start)/60:.2f}m")
+        print(f"Time used: {int((time_used)/60)}m{time_used/60)%1*60:.0f}s")
 
         return self.artists_df, self.artwork_df
         
@@ -325,13 +334,14 @@ def build_artists_dataset(save_dir=None, export_to_dir=True,
     return artists_df
 
     
-def run(save_dir, period='all', school='all', base='all', nationality='all', 
-        custom_name=None, n_processes=cpu_count()-1):
+def build(save_dir, period='all', school='all', base='all', nationality='all', 
+        custom_name=None, n_processes=cpu_count()-1, verbose=1):
     ImageFile.LOAD_TRUNCATED_IMAGES = True
     Build = BuildArtistsDirectory(save_dir=save_dir, period=period, school=school,
                                   base=base, nationality=nationality, 
                                   custom_name=custom_name,
-                                  n_processes=n_processes)
+                                  n_processes=n_processes,
+                                  verbose=verbose)
     
     artists_df, artwork_df = Build.run()
     return artists_df, artwork_df, Build.save_art_dir
@@ -340,18 +350,21 @@ def run(save_dir, period='all', school='all', base='all', nationality='all',
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description ='Scraping artworks from https://www.wga.hu')
     parser.add_argument('savedir', help='Directory to download files to.')
-    parser.add_argument('--period', default='all', help='')
-    parser.add_argument('--school', default='all', help='')
-    parser.add_argument('--base', default='all', help='')
-    parser.add_argument('--nationality', default='all', help='')
-    parser.add_argument('--customname', default=None, help='')
-    parser.add_argument('--nprocesses', default=cpu_count()-1, help='')
+    parser.add_argument('--period', default='all', help="Artist's period")
+    parser.add_argument('--school', default='all', help="Artist's school")
+    parser.add_argument('--base', default='all', help="Artist's base")
+    parser.add_argument('--nationality', default='all', help="Artist's nationality")
+    parser.add_argument('--customname', default=None, help='Custom prefix for the files')
+    parser.add_argument('--nprocesses', default=cpu_count()-1, 
+                        help='The script uses the multiprocessing module, the argument specifies the number of processes')
+    parser.add_argument('--verbose', default=1, help='Whether to print the progress or not')
     
     args = parser.parse_args()
     
     freeze_support()
-    run(save_dir=args.savedir, period=args.period, school=args.school, 
-        base=args.base, nationality=args.nationality, 
-        custom_name=args.customname,
-        n_processes=args.nprocesses)
+    build(save_dir=args.savedir, period=args.period, school=args.school, 
+          base=args.base, nationality=args.nationality, 
+          custom_name=args.customname,
+          n_processes=args.nprocesses,
+          verbose=args.verbose)
         
