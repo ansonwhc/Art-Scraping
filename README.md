@@ -1,6 +1,6 @@
 # Art_Scraping
 Scripts for scraping artworks and artists info from the Web Gallery of Art (https://www.wga.hu)  
-The extracted dataset along with a notebook introduction is available on https://www.kaggle.com/ansonnnnn
+The extracted dataset along with a notebook introduction is available on https://www.kaggle.com/ansonnnnn/historic-art
 
 
 ## Quick start
